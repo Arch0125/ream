@@ -23,6 +23,9 @@ pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
                 format!("Invalid state ID: {}", msg),
             ),
             ApiError::ValidatorNotFound(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+            ApiError::TooManyValidatorIds(msg) => {
+                (StatusCode::URI_TOO_LONG, msg.clone())
+            }
         };
 
         return Ok(with_status(

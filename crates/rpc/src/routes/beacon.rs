@@ -3,10 +3,7 @@ use std::sync::Arc;
 use ream_network_spec::networks::NetworkSpec;
 use ream_storage::db::ReamDB;
 use warp::{
-    Filter, Rejection,
-    filters::{path::end, query::query},
-    get, log, path,
-    reply::Reply,
+    filters::{body, method::post, path::end, query::query}, get, log, path, reply::Reply, Filter, Rejection
 };
 
 use super::with_db;
@@ -18,11 +15,11 @@ use crate::{
         genesis::get_genesis,
         randao::get_randao_mix,
         state::get_state_root,
-        validator::get_validator_from_state,
+        validator::{get_validator_balances_from_state, get_validator_from_state},
     },
     types::{
-        id::{ID, ValidatorID},
-        query::RandaoQuery,
+        id::{ValidatorID, ID},
+        query::{RandaoQuery, ValidatorBalanceQuery},
     },
     utils::error::parsed_param,
 };
@@ -99,6 +96,30 @@ pub fn get_beacon_routes(
         })
         .with(log("validator"));
 
+    let get_validator_balances = beacon_base
+        .and(path("states"))
+        .and(parsed_param::<ID>())
+        .and(path("validator_balances"))
+        .and(query::<ValidatorBalanceQuery>())
+        .and(end())
+        .and(get())
+        .and(db_filter.clone())
+        .and_then(move |state_id: ID, query: ValidatorBalanceQuery, db: ReamDB| get_validator_balances_from_state(state_id, query, db))
+        .with(log("validator_balances"));
+
+    let post_validator_balances = beacon_base
+        .and(path("states"))
+        .and(parsed_param::<ID>())
+        .and(path("validator_balances"))
+        .and(body::json::<ValidatorBalanceQuery>())
+        .and(end())
+        .and(post())
+        .and(db_filter.clone())
+        .and_then(move |state_id: ID, query: ValidatorBalanceQuery, db: ReamDB| {
+            get_validator_balances_from_state(state_id, query, db)
+        })
+        .with(log("validator_balances"));
+
     let block_root = beacon_base
         .and(path("blocks"))
         .and(parsed_param::<ID>())
@@ -126,6 +147,8 @@ pub fn get_beacon_routes(
         .or(state_root)
         .or(block_root)
         .or(block_rewards)
+        .or(get_validator_balances)
+        .or(post_validator_balances)
 }
 
 pub fn get_beacon_routes_v2(

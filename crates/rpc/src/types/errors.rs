@@ -21,6 +21,9 @@ pub enum ApiError {
 
     #[error("Validator not found: {0}")]
     ValidatorNotFound(String),
+
+    #[error("Too many validator ids: {0}")]
+    TooManyValidatorIds(String),
 }
 
 impl Reject for ApiError {}
